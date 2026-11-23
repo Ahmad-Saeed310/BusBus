@@ -4,16 +4,39 @@ import { useEffect, useRef, useState } from "react";
 import type { Map as LeafletMap, Marker } from "leaflet";
 import { VEHICLES } from "../lib/vehicles";
 
-type SharedLocation = { latitude: number; longitude: number; accuracy: number; updatedAt: number };
+type SharedLocation = { latitude: number; longitude: number; accuracy: number; speed: number; updatedAt: number };
 type LocationMap = Record<string, SharedLocation>;
+type ViewerLocation = { latitude: number; longitude: number; accuracy: number };
+
+const distanceKm = (from: ViewerLocation, to: SharedLocation) => {
+  const radians = (value: number) => value * Math.PI / 180;
+  const lat1 = radians(from.latitude);
+  const lat2 = radians(to.latitude);
+  const deltaLat = radians(to.latitude - from.latitude);
+  const deltaLng = radians(to.longitude - from.longitude);
+  const a = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const formatEta = (minutes: number) => {
+  if (!Number.isFinite(minutes) || minutes < 0) return "Calculating…";
+  if (minutes < 1) return "Less than 1 min";
+  if (minutes < 60) return `About ${Math.ceil(minutes)} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = Math.ceil(minutes % 60);
+  return rest ? `${hours} hr ${rest} min` : `${hours} hr`;
+};
 
 export default function LocationViewer() {
   const [locations, setLocations] = useState<LocationMap>({});
   const [selectedVehicle, setSelectedVehicle] = useState("Vehicle 1");
   const [locked, setLocked] = useState(true);
+  const [viewerLocation, setViewerLocation] = useState<ViewerLocation | null>(null);
+  const [viewerStatus, setViewerStatus] = useState("Finding your position…");
   const mapElement = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
   const marker = useRef<Marker | null>(null);
+  const viewerMarker = useRef<Marker | null>(null);
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("vehicle");
@@ -31,7 +54,25 @@ export default function LocationViewer() {
 
     void refresh();
     const timer = window.setInterval(refresh, 5000);
-    return () => window.clearInterval(timer);
+
+    let viewerWatch: number | null = null;
+    if (navigator.geolocation) {
+      viewerWatch = navigator.geolocation.watchPosition(
+        (position) => {
+          setViewerLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy });
+          setViewerStatus("Your position is active");
+        },
+        (error) => setViewerStatus(error.code === 1 ? "Enable location to estimate arrival" : "Could not find your position"),
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 },
+      );
+    } else {
+      setViewerStatus("Geolocation is not supported");
+    }
+
+    return () => {
+      window.clearInterval(timer);
+      if (viewerWatch !== null) navigator.geolocation.clearWatch(viewerWatch);
+    };
   }, []);
 
   useEffect(() => {
@@ -54,6 +95,28 @@ export default function LocationViewer() {
   }, []);
 
   const location = locations[selectedVehicle] ?? null;
+  const remainingKm = location && viewerLocation ? distanceKm(viewerLocation, location) : null;
+  const travelSpeed = location && location.speed >= 2 ? location.speed : 30;
+  const etaMinutes = remainingKm !== null ? remainingKm / travelSpeed * 60 : null;
+
+  useEffect(() => {
+    if (!viewerLocation || !map.current) return;
+    void import("leaflet").then((leaflet) => {
+      if (!map.current) return;
+      const position: [number, number] = [viewerLocation.latitude, viewerLocation.longitude];
+      if (viewerMarker.current) {
+        viewerMarker.current.setLatLng(position);
+      } else {
+        const icon = leaflet.divIcon({
+          className: "viewer-position-marker",
+          html: `<div class="viewer-position-pulse"></div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        viewerMarker.current = leaflet.marker(position, { icon, title: "Your position" }).addTo(map.current);
+      }
+    });
+  }, [viewerLocation]);
 
   useEffect(() => {
     if (!location || !map.current) return;
@@ -61,11 +124,12 @@ export default function LocationViewer() {
       if (!map.current) return;
       const position: [number, number] = [location.latitude, location.longitude];
       const vehicleNumber = selectedVehicle.replace("Vehicle ", "");
+      const markerSize = window.innerWidth <= 520 ? 46 : 52;
       const icon = leaflet.divIcon({
         className: "vehicle-marker",
         html: `<div class="bus-marker" aria-label="${selectedVehicle}"><svg viewBox="0 0 48 48" role="img"><rect x="8" y="5" width="32" height="36" rx="9" fill="#102d27"/><rect x="12" y="10" width="24" height="13" rx="3" fill="#dfe8df"/><rect x="12" y="26" width="24" height="7" rx="2" fill="#dbe96a"/><circle cx="15" cy="43" r="4" fill="#102d27"/><circle cx="33" cy="43" r="4" fill="#102d27"/></svg><strong>${vehicleNumber}</strong></div>`,
-        iconSize: [58, 58],
-        iconAnchor: [29, 48],
+        iconSize: [markerSize, markerSize],
+        iconAnchor: [markerSize / 2, markerSize],
       });
 
       if (marker.current) {
@@ -107,6 +171,19 @@ export default function LocationViewer() {
           )}
 
           <div className={`viewer-status ${location ? "found" : ""}`}><span />{location ? `${selectedVehicle} location live` : `Waiting for ${selectedVehicle}`}</div>
+
+          {location && (
+            <div className="eta-card">
+              <div className="eta-icon">↗</div>
+              <div>
+                <span>Estimated arrival to you</span>
+                <strong>{viewerLocation ? formatEta(etaMinutes ?? 0) : "Share your position"}</strong>
+              </div>
+              {remainingKm !== null && viewerLocation && (
+                <small>{remainingKm < 1 ? `${Math.round(remainingKm * 1000)} m` : `${remainingKm.toFixed(1)} km`} · {Math.round(travelSpeed)} km/h</small>
+              )}
+            </div>
+          )}
 
           {location ? (
             <>

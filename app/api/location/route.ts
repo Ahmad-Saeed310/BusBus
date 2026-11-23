@@ -5,6 +5,7 @@ const locations = new Map<string, {
   latitude: number;
   longitude: number;
   accuracy: number;
+  speed: number;
   updatedAt: number;
 }>();
 
@@ -18,12 +19,13 @@ export async function POST(request: Request) {
   const latitude = Number(body.latitude);
   const longitude = Number(body.longitude);
   const accuracy = Number(body.accuracy);
+  const speed = Number(body.speed);
 
   if (!VEHICLES.includes(vehicle) || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
     return NextResponse.json({ error: "Invalid vehicle or location" }, { status: 400 });
   }
 
-  const location = { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : 0, updatedAt: Date.now() };
+  const location = { latitude, longitude, accuracy: Number.isFinite(accuracy) ? accuracy : 0, speed: Number.isFinite(speed) && speed >= 0 ? speed : 0, updatedAt: Date.now() };
   locations.set(vehicle, location);
   return NextResponse.json({ vehicle, location });
 }

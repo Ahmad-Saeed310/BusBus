@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { VEHICLES } from "../lib/vehicles";
 
-type SharedLocation = { latitude: number; longitude: number; accuracy: number; updatedAt: number };
+type SharedLocation = { latitude: number; longitude: number; accuracy: number; speed: number; updatedAt: number };
 
 export default function LocationSender() {
   const [selectedVehicle, setSelectedVehicle] = useState("Vehicle 1");
@@ -13,6 +13,7 @@ export default function LocationSender() {
   const [copied, setCopied] = useState(false);
   const watcher = useRef<number | null>(null);
   const selectedRef = useRef(selectedVehicle);
+  const previousPosition = useRef<{ latitude: number; longitude: number; updatedAt: number } | null>(null);
 
   useEffect(() => { selectedRef.current = selectedVehicle; }, [selectedVehicle]);
   useEffect(() => () => {
@@ -20,7 +21,26 @@ export default function LocationSender() {
   }, []);
 
   const saveLocation = async (position: GeolocationPosition) => {
-    const next = { latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, updatedAt: Date.now() };
+    const now = Date.now();
+    let speedKmh = position.coords.speed != null && position.coords.speed >= 0
+      ? position.coords.speed * 3.6
+      : 0;
+
+    if (speedKmh === 0 && previousPosition.current) {
+      const previous = previousPosition.current;
+      const elapsedHours = (now - previous.updatedAt) / 3600000;
+      const toRadians = (value: number) => value * Math.PI / 180;
+      const lat1 = toRadians(previous.latitude);
+      const lat2 = toRadians(position.coords.latitude);
+      const deltaLat = toRadians(position.coords.latitude - previous.latitude);
+      const deltaLng = toRadians(position.coords.longitude - previous.longitude);
+      const a = Math.sin(deltaLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+      const distanceKm = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      if (elapsedHours > 0) speedKmh = distanceKm / elapsedHours;
+    }
+
+    previousPosition.current = { latitude: position.coords.latitude, longitude: position.coords.longitude, updatedAt: now };
+    const next = { latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, speed: speedKmh, updatedAt: now };
     setLocation(next);
     setStatus(`${selectedRef.current} location is live`);
 

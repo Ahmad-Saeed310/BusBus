@@ -71,7 +71,18 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .leaflet-map { width: 100%; height: 100%; min-height: 420px; z-index: 1; }
 .vehicle-marker { border: 0; background: transparent; }
-.bus-marker { position:relative; width:58px; height:58px; filter:drop-shadow(0 8px 12px rgba(16,45,39,.28)); }
-.bus-marker svg { width:58px; height:58px; }
-.bus-marker strong { position:absolute; left:50%; top:17px; transform:translate(-50%, -50%); min-width:22px; height:22px; display:grid; place-items:center; padding:0 5px; border:2px solid white; border-radius:999px; background:var(--lime); color:var(--ink); font-size:11px; line-height:1; }
+.bus-marker { position:relative; width:52px; height:52px; filter:drop-shadow(0 7px 10px rgba(16,45,39,.30)); transition:transform .18s ease; }
+.bus-marker:hover { transform:scale(1.08); }
+.bus-marker svg { width:52px; height:52px; }
+.bus-marker strong { position:absolute; left:50%; top:-5px; transform:translateX(-50%); min-width:28px; height:24px; display:grid; place-items:center; padding:0 6px; border:3px solid white; border-radius:999px; background:var(--lime); color:var(--ink); font-size:12px; line-height:1; box-shadow:0 4px 10px rgba(16,45,39,.20); }
+@media (max-width: 520px) {
+  .leaflet-control-zoom a { width:38px; height:38px; line-height:38px; }
+  .leaflet-map { min-height:360px; }
+  .bus-marker { width:46px; height:46px; }
+  .bus-marker svg { width:46px; height:46px; }
+  .bus-marker strong { min-width:24px; height:22px; font-size:11px; border-width:2px; }
+}
 .lock-button { height:42px; display:inline-flex; align-items:center; gap:8px; margin:0 0 10px; padding:0 14px; border:1px solid rgba(16,45,39,.12); border-radius:999px; background:white; color:#71847d; font-size:13px; font-weight:800; cursor:pointer; }.lock-button span{color:#9aa7a2}.lock-button.locked{background:var(--lime);color:var(--ink);border-color:transparent}.lock-button.locked span{color:var(--green)}
+.eta-card { display:grid; grid-template-columns:44px 1fr auto; align-items:center; gap:12px; min-height:72px; margin:-10px 0 14px; padding:12px 14px; border:1px solid rgba(16,45,39,.10); border-radius:16px; background:white; }.eta-icon{width:44px;height:44px;display:grid;place-items:center;border-radius:50%;background:var(--ink);color:var(--lime);font-size:20px}.eta-card div:nth-child(2){display:flex;flex-direction:column;gap:3px}.eta-card div:nth-child(2) span{color:#71847d;font-size:11px;text-transform:uppercase;letter-spacing:.8px}.eta-card div:nth-child(2) strong{font-size:16px}.eta-card small{color:#71847d;font-size:12px;text-align:right}
+.viewer-position-marker{border:0;background:transparent}.viewer-position-pulse{width:24px;height:24px;border:6px solid white;border-radius:50%;background:#3b82f6;box-shadow:0 0 0 6px rgba(59,130,246,.18),0 5px 12px rgba(16,45,39,.25)}
+@media (max-width:520px){.eta-card{grid-template-columns:40px 1fr}.eta-card small{grid-column:2;text-align:left}.eta-icon{width:40px;height:40px}}
