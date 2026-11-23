@@ -42,18 +42,40 @@ export default function LocationViewer() {
     const requested = new URLSearchParams(window.location.search).get("vehicle");
     if (requested && VEHICLES.includes(requested)) setSelectedVehicle(requested);
 
+    let savedFleet: LocationMap = {};
+    try {
+      savedFleet = JSON.parse(window.localStorage.getItem("busbus-live-fleet") ?? "{}");
+      setLocations(savedFleet);
+    } catch {}
+
     const refresh = async () => {
       try {
         const response = await fetch("/api/location", { cache: "no-store" });
         if (response.ok) {
           const data = await response.json();
-          setLocations(data.locations ?? {});
+          setLocations((current) => ({ ...savedFleet, ...current, ...(data.locations ?? {}) }));
         }
       } catch {}
     };
 
+    const liveChannel = typeof BroadcastChannel !== "undefined"
+      ? new BroadcastChannel("busbus-live-fleet")
+      : null;
+    liveChannel?.addEventListener("message", (event) => {
+      const update = event.data as { vehicle?: string; location?: SharedLocation };
+      if (!update?.vehicle || !update.location) return;
+      setLocations((current) => ({
+        ...current,
+        [update.vehicle as string]: update.location as SharedLocation,
+      }));
+    });
+
     void refresh();
-    const timer = window.setInterval(refresh, 5000);
+    const timer = window.setInterval(refresh, 2000);
+    const refreshOnVisible = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", refreshOnVisible);
 
     let viewerWatch: number | null = null;
     if (navigator.geolocation) {
@@ -71,6 +93,8 @@ export default function LocationViewer() {
 
     return () => {
       window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refreshOnVisible);
+      liveChannel?.close();
       if (viewerWatch !== null) navigator.geolocation.clearWatch(viewerWatch);
     };
   }, []);

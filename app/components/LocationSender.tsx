@@ -14,10 +14,15 @@ export default function LocationSender() {
   const watcher = useRef<number | null>(null);
   const selectedRef = useRef(selectedVehicle);
   const previousPosition = useRef<{ latitude: number; longitude: number; updatedAt: number } | null>(null);
+  const channel = useRef<BroadcastChannel | null>(null);
 
   useEffect(() => { selectedRef.current = selectedVehicle; }, [selectedVehicle]);
-  useEffect(() => () => {
-    if (watcher.current !== null) navigator.geolocation.clearWatch(watcher.current);
+  useEffect(() => {
+    channel.current = typeof BroadcastChannel !== "undefined" ? new BroadcastChannel("busbus-live-fleet") : null;
+    return () => {
+      if (watcher.current !== null) navigator.geolocation.clearWatch(watcher.current);
+      channel.current?.close();
+    };
   }, []);
 
   const saveLocation = async (position: GeolocationPosition) => {
@@ -43,6 +48,13 @@ export default function LocationSender() {
     const next = { latitude: position.coords.latitude, longitude: position.coords.longitude, accuracy: position.coords.accuracy, speed: speedKmh, updatedAt: now };
     setLocation(next);
     setStatus(`${selectedRef.current} location is live`);
+
+    try {
+      const savedFleet = JSON.parse(window.localStorage.getItem("busbus-live-fleet") ?? "{}");
+      savedFleet[selectedRef.current] = next;
+      window.localStorage.setItem("busbus-live-fleet", JSON.stringify(savedFleet));
+    } catch {}
+    channel.current?.postMessage({ vehicle: selectedRef.current, location: next });
 
     await fetch("/api/location", {
       method: "POST",
