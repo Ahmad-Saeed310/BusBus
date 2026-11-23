@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Map as LeafletMap, Marker } from "leaflet";
 import { VEHICLES } from "../lib/vehicles";
 
 type SharedLocation = { latitude: number; longitude: number; accuracy: number; updatedAt: number };
@@ -9,6 +10,10 @@ type LocationMap = Record<string, SharedLocation>;
 export default function LocationViewer() {
   const [locations, setLocations] = useState<LocationMap>({});
   const [selectedVehicle, setSelectedVehicle] = useState("Vehicle 1");
+  const [locked, setLocked] = useState(true);
+  const mapElement = useRef<HTMLDivElement>(null);
+  const map = useRef<LeafletMap | null>(null);
+  const marker = useRef<Marker | null>(null);
 
   useEffect(() => {
     const requested = new URLSearchParams(window.location.search).get("vehicle");
@@ -29,10 +34,52 @@ export default function LocationViewer() {
     return () => window.clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void import("leaflet").then((leaflet) => {
+      if (cancelled || !mapElement.current || map.current) return;
+      map.current = leaflet.map(mapElement.current);
+      leaflet.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map.current);
+      map.current.setView([20, 0], 2);
+    });
+    return () => {
+      cancelled = true;
+      map.current?.remove();
+      map.current = null;
+      marker.current = null;
+    };
+  }, []);
+
   const location = locations[selectedVehicle] ?? null;
-  const mapUrl = location
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${location.longitude - 0.025}%2C${location.latitude - 0.018}%2C${location.longitude + 0.025}%2C${location.latitude + 0.018}&layer=mapnik&marker=${location.latitude}%2C${location.longitude}`
-    : "";
+
+  useEffect(() => {
+    if (!location || !map.current) return;
+    void import("leaflet").then((leaflet) => {
+      if (!map.current) return;
+      const position: [number, number] = [location.latitude, location.longitude];
+      const vehicleNumber = selectedVehicle.replace("Vehicle ", "");
+      const icon = leaflet.divIcon({
+        className: "vehicle-marker",
+        html: `<div class="bus-marker" aria-label="${selectedVehicle}"><svg viewBox="0 0 48 48" role="img"><rect x="8" y="5" width="32" height="36" rx="9" fill="#102d27"/><rect x="12" y="10" width="24" height="13" rx="3" fill="#dfe8df"/><rect x="12" y="26" width="24" height="7" rx="2" fill="#dbe96a"/><circle cx="15" cy="43" r="4" fill="#102d27"/><circle cx="33" cy="43" r="4" fill="#102d27"/></svg><strong>${vehicleNumber}</strong></div>`,
+        iconSize: [58, 58],
+        iconAnchor: [29, 48],
+      });
+
+      if (marker.current) {
+        marker.current.setLatLng(position);
+        marker.current.setIcon(icon);
+      } else {
+        marker.current = leaflet.marker(position, { icon, title: selectedVehicle }).addTo(map.current);
+      }
+      if (locked) {
+        const zoom = Math.max(map.current.getZoom(), 13);
+        map.current.setView(position, zoom, { animate: true });
+      }
+    });
+  }, [location, locked, selectedVehicle]);
 
   return (
     <main className="location-shell viewer-shell">
@@ -48,10 +95,16 @@ export default function LocationViewer() {
 
           <label className="vehicle-select viewer-select">
             <span>Select vehicle</span>
-            <select value={selectedVehicle} onChange={(event) => setSelectedVehicle(event.target.value)}>
+            <select value={selectedVehicle} onChange={(event) => { setSelectedVehicle(event.target.value); setLocked(true); }}>
               {VEHICLES.map((vehicle) => <option key={vehicle} value={vehicle}>{vehicle}</option>)}
             </select>
           </label>
+
+          {location && (
+            <button className={`lock-button ${locked ? "locked" : ""}`} onClick={() => setLocked((value) => !value)}>
+              <span>{locked ? "●" : "○"}</span>{locked ? `Locked to ${selectedVehicle}` : `Lock on ${selectedVehicle}`}
+            </button>
+          )}
 
           <div className={`viewer-status ${location ? "found" : ""}`}><span />{location ? `${selectedVehicle} location live` : `Waiting for ${selectedVehicle}`}</div>
 
@@ -69,11 +122,7 @@ export default function LocationViewer() {
         </div>
 
         <div className="map-card">
-          {location ? (
-            <iframe title={`Live map for ${selectedVehicle}`} src={mapUrl} loading="lazy" referrerPolicy="no-referrer" />
-          ) : (
-            <div className="map-placeholder"><div className="placeholder-grid" /><div className="placeholder-pin">●</div><p>Map will appear here</p></div>
-          )}
+          <div ref={mapElement} className="leaflet-map" />
         </div>
       </section>
     </main>
