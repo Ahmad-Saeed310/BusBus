@@ -13,6 +13,10 @@ export default function Home() {
           <a className="secondary-button" href="/view">View a location <span>→</span></a>
         </div>
       </section>
+      <footer className="home-footer">
+        <span>© 2026 Electro</span>
+        <a href="#privacy">Privacy Policy</a>
+      </footer>
     </main>
   );
 }
