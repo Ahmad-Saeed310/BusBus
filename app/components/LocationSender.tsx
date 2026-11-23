@@ -6,7 +6,7 @@ import { VEHICLES } from "../lib/vehicles";
 type SharedLocation = { latitude: number; longitude: number; accuracy: number; speed: number; updatedAt: number };
 
 export default function LocationSender() {
-  const [selectedVehicle, setSelectedVehicle] = useState("abcd to dcb 1");
+  const [selectedVehicle, setSelectedVehicle] = useState(VEHICLES[0]);
   const [location, setLocation] = useState<SharedLocation | null>(null);
   const [status, setStatus] = useState("Choose a vehicle and start sharing");
   const [isSharing, setIsSharing] = useState(false);
@@ -81,6 +81,29 @@ export default function LocationSender() {
     );
   };
 
+  const endSharing = async () => {
+    if (watcher.current !== null) navigator.geolocation.clearWatch(watcher.current);
+    watcher.current = null;
+    setIsSharing(false);
+
+    try {
+      const savedFleet = JSON.parse(window.localStorage.getItem("busbus-live-fleet") ?? "{}");
+      delete savedFleet[selectedRef.current];
+      window.localStorage.setItem("busbus-live-fleet", JSON.stringify(savedFleet));
+    } catch {}
+
+    channel.current?.postMessage({ vehicle: selectedRef.current, location: null });
+    await fetch("/api/location", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vehicle: selectedRef.current }),
+    }).catch(() => undefined);
+
+    setLocation(null);
+    previousPosition.current = null;
+    setStatus("Location sharing ended");
+  };
+
   const shareUrl = typeof window === "undefined" ? "" : `${window.location.origin}/view?vehicle=${encodeURIComponent(selectedVehicle)}`;
   const copyLink = async () => {
     await navigator.clipboard.writeText(shareUrl);
@@ -108,12 +131,19 @@ export default function LocationSender() {
             </select>
           </label>
 
-          <div className="status-card">
+          <div className="status-card" role="status" aria-live="polite">
             <span className={`status-dot ${isSharing ? "active" : ""}`} />
             <div><strong>{status}</strong>{location && <small>Accuracy within {Math.round(location.accuracy)} meters</small>}</div>
           </div>
 
-          <button className="primary-button" onClick={toggleSharing}><span className="button-icon">◎</span>{isSharing ? "Stop sharing" : location ? "Update location" : `Share ${selectedVehicle}`}</button>
+          <div className="sharing-actions">
+            <button className="primary-button" onClick={toggleSharing} aria-pressed={isSharing}><span className="button-icon">◎</span>{isSharing ? "Pause sharing" : location ? "Update location" : `Share ${selectedVehicle}`}</button>
+            {location && (
+              <button className="end-sharing-button" onClick={endSharing} aria-label={`End location sharing for ${selectedVehicle}`}>
+                <span aria-hidden="true">■</span> End sharing
+              </button>
+            )}
+          </div>
 
           {location && (
             <div className="share-panel">

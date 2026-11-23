@@ -29,3 +29,15 @@ export async function POST(request: Request) {
   locations.set(vehicle, location);
   return NextResponse.json({ vehicle, location });
 }
+
+export async function DELETE(request: Request) {
+  const body = await request.json();
+  const vehicle = typeof body.vehicle === "string" ? body.vehicle : "";
+
+  if (!VEHICLES.includes(vehicle)) {
+    return NextResponse.json({ error: "Invalid vehicle" }, { status: 400 });
+  }
+
+  locations.delete(vehicle);
+  return NextResponse.json({ vehicle, ended: true });
+}

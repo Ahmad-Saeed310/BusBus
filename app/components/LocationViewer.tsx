@@ -29,7 +29,7 @@ const formatEta = (minutes: number) => {
 
 export default function LocationViewer() {
   const [locations, setLocations] = useState<LocationMap>({});
-  const [selectedVehicle, setSelectedVehicle] = useState("abcd to dcb 1");
+  const [selectedVehicle, setSelectedVehicle] = useState(VEHICLES[0]);
   const [locked, setLocked] = useState(true);
   const [viewerLocation, setViewerLocation] = useState<ViewerLocation | null>(null);
   const [viewerStatus, setViewerStatus] = useState("Finding your position…");
@@ -63,11 +63,13 @@ export default function LocationViewer() {
       : null;
     liveChannel?.addEventListener("message", (event) => {
       const update = event.data as { vehicle?: string; location?: SharedLocation };
-      if (!update?.vehicle || !update.location) return;
-      setLocations((current) => ({
-        ...current,
-        [update.vehicle as string]: update.location as SharedLocation,
-      }));
+      if (!update?.vehicle) return;
+      setLocations((current) => {
+        const next = { ...current };
+        if (update.location) next[update.vehicle as string] = update.location as SharedLocation;
+        else delete next[update.vehicle as string];
+        return next;
+      });
     });
 
     void refresh();
