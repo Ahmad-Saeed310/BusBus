@@ -29,13 +29,13 @@ const formatEta = (minutes: number) => {
 
 export default function LocationViewer() {
   const [locations, setLocations] = useState<LocationMap>({});
-  const [selectedVehicle, setSelectedVehicle] = useState("Vehicle 1");
+  const [selectedVehicle, setSelectedVehicle] = useState("abcd to dcb 1");
   const [locked, setLocked] = useState(true);
   const [viewerLocation, setViewerLocation] = useState<ViewerLocation | null>(null);
   const [viewerStatus, setViewerStatus] = useState("Finding your position…");
   const mapElement = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
-  const marker = useRef<Marker | null>(null);
+  const vehicleMarkers = useRef<Map<string, Marker>>(new Map());
   const viewerMarker = useRef<Marker | null>(null);
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function LocationViewer() {
       cancelled = true;
       map.current?.remove();
       map.current = null;
-      marker.current = null;
+      vehicleMarkers.current.clear();
     };
   }, []);
 
@@ -98,6 +98,12 @@ export default function LocationViewer() {
   const remainingKm = location && viewerLocation ? distanceKm(viewerLocation, location) : null;
   const travelSpeed = location && location.speed >= 2 ? location.speed : 30;
   const etaMinutes = remainingKm !== null ? remainingKm / travelSpeed * 60 : null;
+  const availableVehicles = VEHICLES.filter((vehicle) => locations[vehicle]);
+  const nearestBus = viewerLocation
+    ? availableVehicles
+        .map((vehicle) => ({ vehicle, distance: distanceKm(viewerLocation, locations[vehicle]) }))
+        .sort((a, b) => a.distance - b.distance)[0] ?? null
+    : null;
 
   useEffect(() => {
     if (!viewerLocation || !map.current) return;
@@ -119,31 +125,53 @@ export default function LocationViewer() {
   }, [viewerLocation]);
 
   useEffect(() => {
-    if (!location || !map.current) return;
+    if (!map.current) return;
     void import("leaflet").then((leaflet) => {
       if (!map.current) return;
-      const position: [number, number] = [location.latitude, location.longitude];
-      const vehicleNumber = selectedVehicle.replace("Vehicle ", "");
       const markerSize = window.innerWidth <= 520 ? 46 : 52;
-      const icon = leaflet.divIcon({
-        className: "vehicle-marker",
-        html: `<div class="bus-marker" aria-label="${selectedVehicle}"><svg viewBox="0 0 48 48" role="img"><rect x="8" y="5" width="32" height="36" rx="9" fill="#102d27"/><rect x="12" y="10" width="24" height="13" rx="3" fill="#dfe8df"/><rect x="12" y="26" width="24" height="7" rx="2" fill="#dbe96a"/><circle cx="15" cy="43" r="4" fill="#102d27"/><circle cx="33" cy="43" r="4" fill="#102d27"/></svg><strong>${vehicleNumber}</strong></div>`,
-        iconSize: [markerSize, markerSize],
-        iconAnchor: [markerSize / 2, markerSize],
-      });
 
-      if (marker.current) {
-        marker.current.setLatLng(position);
-        marker.current.setIcon(icon);
-      } else {
-        marker.current = leaflet.marker(position, { icon, title: selectedVehicle }).addTo(map.current);
+      for (const [vehicle, marker] of vehicleMarkers.current) {
+        if (!locations[vehicle]) {
+          marker.remove();
+          vehicleMarkers.current.delete(vehicle);
+        }
       }
-      if (locked) {
+
+      for (const vehicle of availableVehicles) {
+        const vehicleLocation = locations[vehicle];
+        if (!vehicleLocation) continue;
+        const position: [number, number] = [vehicleLocation.latitude, vehicleLocation.longitude];
+        const vehicleNumber = vehicle.match(/\d+$/)?.[0] ?? vehicle;
+        const isSelected = vehicle === selectedVehicle;
+        const isNearest = nearestBus?.vehicle === vehicle;
+
+        const icon = leaflet.divIcon({
+          className: "vehicle-marker",
+          html: `<div class="bus-marker ${isSelected ? "selected" : ""} ${isNearest ? "recommended" : ""}" aria-label="${vehicle}${isNearest ? " — nearest" : ""}"><svg viewBox="0 0 48 48" role="img"><rect x="8" y="5" width="32" height="36" rx="9" fill="#102d27"/><rect x="12" y="10" width="24" height="13" rx="3" fill="#dfe8df"/><rect x="12" y="26" width="24" height="7" rx="2" fill="#dbe96a"/><circle cx="15" cy="43" r="4" fill="#102d27"/><circle cx="33" cy="43" r="4" fill="#102d27"/></svg><strong>${vehicleNumber}</strong></div>`,
+          iconSize: [markerSize, markerSize],
+          iconAnchor: [markerSize / 2, markerSize],
+        });
+
+        const existing = vehicleMarkers.current.get(vehicle);
+        if (existing) {
+          existing.setLatLng(position);
+          existing.setIcon(icon);
+        } else {
+          const created = leaflet.marker(position, { icon, title: vehicle }).addTo(map.current);
+          created.on("click", () => {
+            setSelectedVehicle(vehicle);
+            setLocked(true);
+          });
+          vehicleMarkers.current.set(vehicle, created);
+        }
+      }
+
+      if (locked && location) {
         const zoom = Math.max(map.current.getZoom(), 13);
-        map.current.setView(position, zoom, { animate: true });
+        map.current.setView([location.latitude, location.longitude], zoom, { animate: true });
       }
     });
-  }, [location, locked, selectedVehicle]);
+  }, [locations, locked, selectedVehicle, nearestBus?.vehicle, location]);
 
   return (
     <main className="location-shell viewer-shell">
@@ -171,6 +199,17 @@ export default function LocationViewer() {
           )}
 
           <div className={`viewer-status ${location ? "found" : ""}`}><span />{location ? `${selectedVehicle} location live` : `Waiting for ${selectedVehicle}`}</div>
+
+          {nearestBus && viewerLocation && (
+            <button className="nearest-card" onClick={() => { setSelectedVehicle(nearestBus.vehicle); setLocked(true); }}>
+              <div className="nearest-badge">NEAREST</div>
+              <div>
+                <span>Recommended bus</span>
+                <strong>{nearestBus.vehicle}</strong>
+              </div>
+              <small>{nearestBus.distance < 1 ? `${Math.round(nearestBus.distance * 1000)} m away` : `${nearestBus.distance.toFixed(1)} km away`} <b>→</b></small>
+            </button>
+          )}
 
           {location && (
             <div className="eta-card">

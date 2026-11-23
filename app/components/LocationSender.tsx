@@ -6,7 +6,7 @@ import { VEHICLES } from "../lib/vehicles";
 type SharedLocation = { latitude: number; longitude: number; accuracy: number; speed: number; updatedAt: number };
 
 export default function LocationSender() {
-  const [selectedVehicle, setSelectedVehicle] = useState("Vehicle 1");
+  const [selectedVehicle, setSelectedVehicle] = useState("abcd to dcb 1");
   const [location, setLocation] = useState<SharedLocation | null>(null);
   const [status, setStatus] = useState("Choose a vehicle and start sharing");
   const [isSharing, setIsSharing] = useState(false);
@@ -85,7 +85,7 @@ export default function LocationSender() {
 
       <section className="sender-layout">
         <div className="sender-copy">
-          <p className="eyebrow">15-VEHICLE FLEET</p>
+          <p className="eyebrow">FLEET ROUTES</p>
           <h1>Share a vehicle location.</h1>
           <p className="intro">Select the vehicle you are using, allow location access, and keep its position visible to fleet viewers.</p>
 
@@ -112,7 +112,7 @@ export default function LocationSender() {
           )}
         </div>
 
-        <div className="sender-visual" aria-label="Vehicle location illustration">
+        <div className="sender-visual" aria-label="Bus location illustration">
           <div className="orbit orbit-one" /><div className="orbit orbit-two" />
           <div className="phone-card"><div className="phone-notch" /><div className="mini-map">
             <div className="road road-one" /><div className="road road-two" /><div className="road road-three" /><div className="location-pulse"><span /></div>
