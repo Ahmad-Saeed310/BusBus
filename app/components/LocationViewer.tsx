@@ -176,7 +176,7 @@ export default function LocationViewer() {
   return (
     <main className="location-shell viewer-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Electro home"><span className="brand-mark">E</span><span>Electro</span></a>
+        <a className="brand" href="/" aria-label="BusBus! home"><span className="brand-mark">B</span><span>BusBus!</span></a>
         <a className="text-link" href="/send">Share a vehicle <span>↗</span></a>
       </header>
 

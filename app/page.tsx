@@ -2,7 +2,7 @@ export default function Home() {
   return (
     <main className="location-shell home-shell">
       <header className="topbar">
-        <a className="brand" href="/"><span className="brand-mark">E</span><span>Electro</span></a>
+        <a className="brand" href="/"><span className="brand-mark">B</span><span>BusBus!</span></a>
       </header>
       <section className="home-hero">
         <p className="eyebrow">SHARE YOUR WHEREABOUTS</p>
@@ -14,7 +14,7 @@ export default function Home() {
         </div>
       </section>
       <footer className="home-footer">
-        <span>© 2026 Electro</span>
+        <span>© 2026 BusBus!</span>
         <a href="#privacy">Privacy Policy</a>
       </footer>
     </main>

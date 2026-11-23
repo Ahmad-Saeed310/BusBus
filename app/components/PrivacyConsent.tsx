@@ -51,7 +51,7 @@ export default function PrivacyConsent() {
       <div className="privacy-modal">
         <div className="privacy-header">
           <div>
-            <p>Electro</p>
+            <p>BusBus!</p>
             <h2 id="privacy-title">Developer Disclaimer and Limitation of Responsibility</h2>
           </div>
           {accepted && <button className="privacy-close" onClick={() => setOpen(false)} aria-label="Close privacy policy">×</button>}

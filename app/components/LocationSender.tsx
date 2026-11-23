@@ -79,7 +79,7 @@ export default function LocationSender() {
   return (
     <main className="location-shell">
       <header className="topbar">
-        <a className="brand" href="/" aria-label="Electro home"><span className="brand-mark">E</span><span>Electro</span></a>
+        <a className="brand" href="/" aria-label="BusBus! home"><span className="brand-mark">B</span><span>BusBus!</span></a>
         <a className="text-link" href="/view">Open fleet viewer <span>↗</span></a>
       </header>
 

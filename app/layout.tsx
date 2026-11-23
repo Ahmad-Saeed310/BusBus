@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Electro — Live Location",
+  title: "BusBus! — Live Location",
   description: "Share and view locations with a simple map link.",
 };
 
